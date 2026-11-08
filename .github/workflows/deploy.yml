@@ -3,7 +3,7 @@ name: Deploy NexWatch to GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,37 +15,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm ci
 
-      - name: Build
-        run: npm run build
+      - run: npm run build
         env:
-          VITE_TMDB_KEY:    ${{ secrets.VITE_TMDB_KEY }}
-          VITE_TURSO_URL:   ${{ secrets.VITE_TURSO_URL }}
+          VITE_TMDB_KEY: ${{ secrets.VITE_TMDB_KEY }}
+          VITE_TURSO_URL: ${{ secrets.VITE_TURSO_URL }}
           VITE_TURSO_TOKEN: ${{ secrets.VITE_TURSO_TOKEN }}
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: ./dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        id: deploy
+        id: deployment
         uses: actions/deploy-pages@v4
