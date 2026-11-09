@@ -1,9 +1,10 @@
 /* ============================================================
    NexWatch – Navbar component
 ============================================================ */
-import { navigate }             from '../router.js';
-import { isTursoConfigured }   from '../services/turso.js';
-import { showToast }            from './toast.js';
+import { navigate }                              from '../router.js';
+import { isTursoConfigured }                     from '../services/turso.js';
+import { showToast }                             from './toast.js';
+import { isPasswordRequired, isAuthenticated, logout } from '../services/auth.js';
 
 export function createNavbar(onSearch) {
   const nav = document.createElement('nav');
@@ -37,6 +38,12 @@ export function createNavbar(onSearch) {
           ? '<span class="sync-dot"></span> Cloud sync'
           : '💾 Local only'}
       </div>
+
+      ${isPasswordRequired() && isAuthenticated() ? `
+        <button class="navbar-lock-btn" id="navbar-lock-btn" title="Lock / sign out" aria-label="Lock the app">
+          🔒
+        </button>
+      ` : ''}
     </div>
   `;
 
@@ -63,6 +70,13 @@ export function createNavbar(onSearch) {
       clearTimeout(debounce);
       const q = input.value.trim();
       if (q) { navigate('search', { q }); onSearch?.(q); }
+    }
+  });
+
+  // Lock / logout button
+  nav.querySelector('#navbar-lock-btn')?.addEventListener('click', () => {
+    if (confirm('Lock NexWatch and return to the login screen?')) {
+      logout(); // clears localStorage auth and reloads
     }
   });
 

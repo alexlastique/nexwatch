@@ -32,6 +32,7 @@ jobs:
           VITE_TMDB_KEY: ${{ secrets.VITE_TMDB_KEY }}
           VITE_TURSO_URL: ${{ secrets.VITE_TURSO_URL }}
           VITE_TURSO_TOKEN: ${{ secrets.VITE_TURSO_TOKEN }}
+          VITE_APP_PASSWORD: ${{ secrets.VITE_APP_PASSWORD }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

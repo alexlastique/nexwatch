@@ -690,6 +690,25 @@
 }
 .stat-card .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
+/* ── Lock button ── */
+.navbar-lock-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all var(--transition);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.navbar-lock-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.05);
+}
+
 /* ── Sync badge ── */
 .navbar-sync-badge {
   display: inline-flex;

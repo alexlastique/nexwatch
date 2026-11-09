@@ -42,6 +42,11 @@ function handleRoute() {
   setNavbarSearch(params.q || '');
 
   if (handler && pageContainer) {
+    // Cleanup any subscriptions from the previous page
+    if (typeof pageContainer._unsubscribeLibrary === 'function') {
+      pageContainer._unsubscribeLibrary();
+      pageContainer._unsubscribeLibrary = null;
+    }
     handler(pageContainer, params);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }

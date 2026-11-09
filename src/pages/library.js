@@ -1,7 +1,7 @@
 /* ============================================================
    NexWatch – Library page
 ============================================================ */
-import { filterLibrary, getStats, removeFromLibrary, updateStatus, updateProgress, formatProgress } from '../store/library.js';
+import { filterLibrary, getStats, removeFromLibrary, updateStatus, updateProgress, formatProgress, subscribeLibrary } from '../store/library.js';
 import { openDetail } from './detail.js';
 import { showToast } from '../components/toast.js';
 import { navigate } from '../router.js';
@@ -53,9 +53,6 @@ export function renderLibrary(container) {
 
   container.querySelector('#lib-discover-btn').addEventListener('click', () => navigate('search'));
 
-  // Stats
-  renderStats(container.querySelector('#lib-stats'));
-
   // Filters
   container.querySelector('#type-filter').addEventListener('click', e => {
     const chip = e.target.closest('.filter-chip');
@@ -75,8 +72,18 @@ export function renderLibrary(container) {
     renderList(container.querySelector('#lib-list'));
   });
 
-  // Initial list
-  renderList(container.querySelector('#lib-list'));
+  // ── Subscribe to store: re-render stats + list whenever data changes ──
+  // This fixes the "empty on reload" bug: boot() is async, so the first
+  // render may run before data loads. The subscription re-renders automatically.
+  const unsubscribe = subscribeLibrary(() => {
+    const statsEl = container.querySelector('#lib-stats');
+    const listEl  = container.querySelector('#lib-list');
+    if (statsEl) renderStats(statsEl);
+    if (listEl)  renderList(listEl);
+  });
+
+  // Cleanup subscription if the page container is later replaced
+  container._unsubscribeLibrary = unsubscribe;
 }
 
 function renderStats(statsContainer) {
