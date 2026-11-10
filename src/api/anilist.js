@@ -29,11 +29,18 @@ export async function searchManga(search, page = 1) {
   const data = await query(`
     query($search: String, $page: Int) {
       Page(page: $page, perPage: 20) {
+        pageInfo { currentPage hasNextPage total totalPages }
         media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "JP") { ${MANGA_FRAGMENT} }
       }
     }
   `, { search, page });
-  return (data.Page.media || []).map(normalizeManga);
+  return {
+    results: (data.Page.media || []).map(normalizeManga),
+    page: data.Page.pageInfo.currentPage,
+    totalPages: data.Page.pageInfo.totalPages,
+    totalResults: data.Page.pageInfo.total,
+    hasNextPage: data.Page.pageInfo.hasNextPage,
+  };
 }
 
 export async function searchWebtoons(search, page = 1) {
@@ -42,6 +49,7 @@ export async function searchWebtoons(search, page = 1) {
     query(`
       query($search: String, $page: Int) {
         Page(page: $page, perPage: 15) {
+          pageInfo { currentPage hasNextPage total totalPages }
           media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "KR") { ${MANGA_FRAGMENT} }
         }
       }
@@ -49,6 +57,7 @@ export async function searchWebtoons(search, page = 1) {
     query(`
       query($search: String, $page: Int) {
         Page(page: $page, perPage: 5) {
+          pageInfo { currentPage hasNextPage total totalPages }
           media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "CN") { ${MANGA_FRAGMENT} }
         }
       }
@@ -58,7 +67,13 @@ export async function searchWebtoons(search, page = 1) {
     ...(kr.Page.media || []),
     ...(cn.Page.media || []),
   ];
-  return combined.map(normalizeManga);
+  return {
+    results: combined.map(normalizeManga),
+    page,
+    totalPages: Math.max(kr.Page.pageInfo.totalPages, cn.Page.pageInfo.totalPages),
+    totalResults: kr.Page.pageInfo.total + cn.Page.pageInfo.total,
+    hasNextPage: kr.Page.pageInfo.hasNextPage || cn.Page.pageInfo.hasNextPage,
+  };
 }
 
 // ── Trending & Popular ─────────────────────────────────────

@@ -663,6 +663,38 @@
   color: var(--text-secondary);
   margin-bottom: 20px;
 }
+.search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 28px 0 12px;
+}
+.search-pagination[hidden] { display: none; }
+.search-page-button {
+  padding: 9px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.search-page-button:hover:not(:disabled) {
+  border-color: var(--accent-1);
+  color: var(--accent-1);
+}
+.search-page-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.search-page-indicator {
+  min-width: 90px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
 
 /* ── Library Stats ── */
 .library-stats {
