@@ -29,7 +29,7 @@ export async function searchManga(search, page = 1) {
   const data = await query(`
     query($search: String, $page: Int) {
       Page(page: $page, perPage: 20) {
-        pageInfo { currentPage hasNextPage total totalPages }
+        pageInfo { currentPage hasNextPage total }
         media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "JP") { ${MANGA_FRAGMENT} }
       }
     }
@@ -49,7 +49,7 @@ export async function searchWebtoons(search, page = 1) {
     query(`
       query($search: String, $page: Int) {
         Page(page: $page, perPage: 15) {
-          pageInfo { currentPage hasNextPage total totalPages }
+          pageInfo { currentPage hasNextPage total }
           media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "KR") { ${MANGA_FRAGMENT} }
         }
       }
@@ -57,7 +57,7 @@ export async function searchWebtoons(search, page = 1) {
     query(`
       query($search: String, $page: Int) {
         Page(page: $page, perPage: 5) {
-          pageInfo { currentPage hasNextPage total totalPages }
+          pageInfo { currentPage hasNextPage total }
           media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "CN") { ${MANGA_FRAGMENT} }
         }
       }
