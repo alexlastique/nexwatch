@@ -1,9 +1,11 @@
 /* ============================================================
    NexWatch – AniList GraphQL API module (manga & webtoons)
-   No API key required.
+   No API key required. Pagination supportée sur tous les endpoints.
+   Retour des fonctions de liste : { items: [...], pageInfo: {...} }
 ============================================================ */
 
 const ANILIST_URL = 'https://graphql.anilist.co';
+const MAX_PER_PAGE = 50; // limite imposée par AniList
 
 async function query(gql, variables = {}) {
   const res = await fetch(ANILIST_URL, {
@@ -24,110 +26,124 @@ const MANGA_FRAGMENT = `
   meanScore popularity isAdult
 `;
 
-// ── Search ─────────────────────────────────────────────────
-export async function searchManga(search, page = 1) {
+const PAGE_INFO = `pageInfo { total currentPage lastPage hasNextPage perPage }`;
+
+// ── Helpers de pagination ──────────────────────────────────
+function sanitizePage(page) {
+  const p = Number.parseInt(page, 10);
+  return Number.isFinite(p) && p >= 1 ? p : 1;
+}
+
+function sanitizePerPage(perPage, fallback) {
+  const n = Number.parseInt(perPage, 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(n, MAX_PER_PAGE);
+}
+
+/**
+ * Requête paginée générique sur Page.media.
+ * - `search` n'est envoyé que s'il est défini (sort SEARCH_MATCH uniquement dans ce cas)
+ * - `country` : "JP" | "KR" | "CN"
+ */
+async function fetchMediaPage({ search, sort, country, page, perPage }) {
+  const variables = { page, perPage, sort: [sort], country };
+  if (search) variables.search = search;
+
   const data = await query(`
-    query($search: String, $page: Int) {
-      Page(page: $page, perPage: 20) {
-        pageInfo { currentPage hasNextPage total }
-        media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "JP") { ${MANGA_FRAGMENT} }
+    query($page: Int, $perPage: Int, $search: String, $sort: [MediaSort], $country: CountryCode) {
+      Page(page: $page, perPage: $perPage) {
+        ${PAGE_INFO}
+        media(type: MANGA, search: $search, sort: $sort, countryOfOrigin: $country) { ${MANGA_FRAGMENT} }
       }
     }
-  `, { search, page });
+  `, variables);
+
   return {
-    results: (data.Page.media || []).map(normalizeManga),
-    page: data.Page.pageInfo.currentPage,
-    totalPages: data.Page.pageInfo.totalPages,
-    totalResults: data.Page.pageInfo.total,
-    hasNextPage: data.Page.pageInfo.hasNextPage,
+    items: (data.Page.media || []).map(normalizeManga),
+    pageInfo: data.Page.pageInfo,
   };
 }
 
-export async function searchWebtoons(search, page = 1) {
-  // Korean manhwa (KR) and Chinese manhua (CN) are the main webtoon origins
+/**
+ * Webtoons = KR (manhwa) + CN (manhua). AniList n'accepte qu'UN seul pays par requête,
+ * donc on fait 2 requêtes avec le même index de page et on fusionne les pageInfo :
+ *  - hasNextPage : vrai si l'un des deux a encore des pages
+ *  - lastPage    : le max des deux
+ *  - total       : la somme
+ * Une page au-delà de lastPage renvoie simplement une liste vide côté AniList.
+ */
+async function fetchWebtoonPage({ search, sort, page, perPage }) {
+  const krPer = Math.max(1, Math.round(perPage * 0.75));
+  const cnPer = Math.max(1, perPage - krPer);
+
   const [kr, cn] = await Promise.all([
-    query(`
-      query($search: String, $page: Int) {
-        Page(page: $page, perPage: 15) {
-          pageInfo { currentPage hasNextPage total }
-          media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "KR") { ${MANGA_FRAGMENT} }
-        }
-      }
-    `, { search, page }),
-    query(`
-      query($search: String, $page: Int) {
-        Page(page: $page, perPage: 5) {
-          pageInfo { currentPage hasNextPage total }
-          media(search: $search, type: MANGA, sort: SEARCH_MATCH, countryOfOrigin: "CN") { ${MANGA_FRAGMENT} }
-        }
-      }
-    `, { search, page }),
+    fetchMediaPage({ search, sort, country: 'KR', page, perPage: krPer }),
+    fetchMediaPage({ search, sort, country: 'CN', page, perPage: cnPer }),
   ]);
-  const combined = [
-    ...(kr.Page.media || []),
-    ...(cn.Page.media || []),
-  ];
+
   return {
-    results: combined.map(normalizeManga),
-    page,
-    totalPages: Math.max(kr.Page.pageInfo.totalPages, cn.Page.pageInfo.totalPages),
-    totalResults: kr.Page.pageInfo.total + cn.Page.pageInfo.total,
-    hasNextPage: kr.Page.pageInfo.hasNextPage || cn.Page.pageInfo.hasNextPage,
+    items: [...kr.items, ...cn.items],
+    pageInfo: {
+      total:       (kr.pageInfo.total || 0) + (cn.pageInfo.total || 0),
+      currentPage: page,
+      lastPage:    Math.max(kr.pageInfo.lastPage || 1, cn.pageInfo.lastPage || 1),
+      hasNextPage: !!(kr.pageInfo.hasNextPage || cn.pageInfo.hasNextPage),
+      perPage,
+    },
   };
+}
+
+// ── Search ─────────────────────────────────────────────────
+export function searchManga(search, page = 1, perPage = 20) {
+  return fetchMediaPage({
+    search, sort: 'SEARCH_MATCH', country: 'JP',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
+}
+
+export function searchWebtoons(search, page = 1, perPage = 20) {
+  return fetchWebtoonPage({
+    search, sort: 'SEARCH_MATCH',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
 }
 
 // ── Trending & Popular ─────────────────────────────────────
-export async function getTrendingManga() {
-  const data = await query(`
-    query {
-      Page(page: 1, perPage: 20) {
-        media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: "JP") { ${MANGA_FRAGMENT} }
-      }
-    }
-  `);
-  return (data.Page.media || []).map(normalizeManga);
+export function getTrendingManga(page = 1, perPage = 20) {
+  return fetchMediaPage({
+    sort: 'TRENDING_DESC', country: 'JP',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
 }
 
-export async function getTrendingWebtoons() {
-  // Fetch Korean manhwa (the dominant webtoon origin) and Chinese manhua
-  const [kr, cn] = await Promise.all([
-    query(`
-      query {
-        Page(page: 1, perPage: 16) {
-          media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: "KR") { ${MANGA_FRAGMENT} }
-        }
-      }
-    `),
-    query(`
-      query {
-        Page(page: 1, perPage: 4) {
-          media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: "CN") { ${MANGA_FRAGMENT} }
-        }
-      }
-    `),
-  ]);
-  const combined = [
-    ...(kr.Page.media || []),
-    ...(cn.Page.media || []),
-  ];
-  return combined.map(normalizeManga);
+export function getTrendingWebtoons(page = 1, perPage = 20) {
+  return fetchWebtoonPage({
+    sort: 'TRENDING_DESC',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
 }
 
-export async function getPopularManga() {
-  const data = await query(`
-    query {
-      Page(page: 1, perPage: 20) {
-        media(type: MANGA, sort: POPULARITY_DESC, countryOfOrigin: "JP") { ${MANGA_FRAGMENT} }
-      }
-    }
-  `);
-  return (data.Page.media || []).map(normalizeManga);
+export function getPopularManga(page = 1, perPage = 20) {
+  return fetchMediaPage({
+    sort: 'POPULARITY_DESC', country: 'JP',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
+}
+
+// Nouvel endpoint cohérent avec getPopularManga
+export function getPopularWebtoons(page = 1, perPage = 20) {
+  return fetchWebtoonPage({
+    sort: 'POPULARITY_DESC',
+    page: sanitizePage(page), perPage: sanitizePerPage(perPage, 20),
+  });
 }
 
 // ── Detail ────────────────────────────────────────────────
-export async function getMangaDetail(anilistId) {
+// Les relations ne sont pas paginables dans AniList (liste complète, tronquée à 6 ici).
+// Les personnages le sont via charactersPage.
+export async function getMangaDetail(anilistId, charactersPage = 1, charactersPerPage = 8) {
   const data = await query(`
-    query($id: Int) {
+    query($id: Int, $cPage: Int, $cPerPage: Int) {
       Media(id: $id, type: MANGA) {
         ${MANGA_FRAGMENT}
         relations {
@@ -136,12 +152,17 @@ export async function getMangaDetail(anilistId) {
             node { id title { romaji } coverImage { medium } type format countryOfOrigin }
           }
         }
-        characters(sort: ROLE, perPage: 8) {
+        characters(sort: ROLE, page: $cPage, perPage: $cPerPage) {
+          pageInfo { total currentPage lastPage hasNextPage perPage }
           edges { node { name { full } image { medium } } role }
         }
       }
     }
-  `, { id: anilistId });
+  `, {
+    id: anilistId,
+    cPage: sanitizePage(charactersPage),
+    cPerPage: sanitizePerPage(charactersPerPage, 8),
+  });
   return normalizeMangaDetail(data.Media);
 }
 
@@ -186,5 +207,6 @@ function normalizeMangaDetail(m) {
       photo: e.node.image?.medium,
       role: e.role,
     })),
+    charactersPageInfo: m.characters?.pageInfo || null,
   };
 }
