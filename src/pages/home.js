@@ -6,6 +6,9 @@ import { getTrendingManga, getTrendingWebtoons } from '../api/anilist.js';
 import { createCarousel, hydrateCarousel } from '../components/carousel.js';
 import { navigate } from '../router.js';
 
+// AniList renvoie maintenant { items, pageInfo } : la home n'a besoin que de la 1re page d'items.
+const firstPageItems = fn => async () => (await fn(1)).items;
+
 export async function renderHome(container) {
   container.innerHTML = '';
 
@@ -46,8 +49,8 @@ export async function renderHome(container) {
   const carouselDefs = [
     { id: 'trending-movies',   title: '🎬 Trending Movies',    fetch: getTrendingMovies },
     { id: 'trending-tv',       title: '📺 Trending TV Shows',   fetch: getTrendingTV },
-    { id: 'trending-manga',    title: '📚 Trending Manga',      fetch: getTrendingManga },
-    { id: 'trending-webtoons', title: '📱 Trending Webtoons',   fetch: getTrendingWebtoons },
+    { id: 'trending-manga',    title: '📚 Trending Manga',      fetch: firstPageItems(getTrendingManga) },
+    { id: 'trending-webtoons', title: '📱 Trending Webtoons',   fetch: firstPageItems(getTrendingWebtoons) },
     { id: 'popular-movies',    title: '🔥 Popular Movies',      fetch: getPopularMovies },
   ];
 

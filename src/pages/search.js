@@ -9,6 +9,21 @@ let currentTab = 'movie';
 let lastQuery  = '';
 let debounce;
 
+/**
+ * AniList renvoie { items, pageInfo: { total, currentPage, lastPage, hasNextPage, perPage } }.
+ * On le convertit vers la forme attendue par la page :
+ * { results, page, totalPages, totalResults, hasNextPage } (même forme que TMDB).
+ */
+function fromAniList({ items = [], pageInfo = {} }, requestedPage = 1) {
+  return {
+    results:      items,
+    page:         pageInfo.currentPage || requestedPage,
+    totalPages:   pageInfo.lastPage || 1,
+    totalResults: pageInfo.total ?? items.length,
+    hasNextPage:  !!pageInfo.hasNextPage,
+  };
+}
+
 export function renderSearch(container, params = {}) {
   const initialQuery = params.q || '';
   const searchState = {
@@ -75,7 +90,7 @@ export function renderSearch(container, params = {}) {
       currentTab = tab.dataset.tab;
       searchState.page = 1;
       if (lastQuery) runSearch(lastQuery, grid, meta, pagination, searchState, 1);
-      else renderDiscover(grid, meta, currentTab, pagination, searchState);
+      else renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
     });
   });
 
@@ -87,16 +102,19 @@ export function renderSearch(container, params = {}) {
       lastQuery = q;
       searchState.page = 1;
       if (q.length >= 2) runSearch(q, grid, meta, pagination, searchState, 1);
-      else renderDiscover(grid, meta, currentTab, pagination, searchState);
+      else renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
     }, 350);
   });
 
+  // Pagination : fonctionne en recherche ET en mode Discover (trending)
   pagination.addEventListener('click', event => {
     const button = event.target.closest('[data-page-action]');
-    if (!button || button.disabled || !lastQuery) return;
-    const page = searchState.page + (button.dataset.pageAction === 'next' ? 1 : -1);
-    if (page < 1 || (button.dataset.pageAction === 'next' && !searchState.hasNextPage)) return;
-    runSearch(lastQuery, grid, meta, pagination, searchState, page);
+    if (!button || button.disabled) return;
+    const isNext = button.dataset.pageAction === 'next';
+    const page = searchState.page + (isNext ? 1 : -1);
+    if (page < 1 || (isNext && !searchState.hasNextPage)) return;
+    if (lastQuery && lastQuery.length >= 2) runSearch(lastQuery, grid, meta, pagination, searchState, page);
+    else renderDiscover(grid, meta, currentTab, pagination, searchState, page);
   });
 
   // Initial state
@@ -104,8 +122,15 @@ export function renderSearch(container, params = {}) {
     lastQuery = initialQuery;
     runSearch(initialQuery, grid, meta, pagination, searchState, 1);
   } else {
-    renderDiscover(grid, meta, currentTab, pagination, searchState);
+    renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
   }
+}
+
+function applyPageState(state, response) {
+  state.page         = response.page;
+  state.hasNextPage  = response.hasNextPage;
+  state.totalPages   = response.totalPages;
+  state.totalResults = response.totalResults;
 }
 
 async function runSearch(query, grid, meta, pagination, state, page) {
@@ -119,14 +144,11 @@ async function runSearch(query, grid, meta, pagination, state, page) {
     let response;
     if (tab === 'movie')        response = await searchMovies(query, page);
     else if (tab === 'tv')      response = await searchTV(query, page);
-    else if (tab === 'webtoon') response = await searchWebtoons(query, page);
-    else                        response = await searchManga(query, page);
+    else if (tab === 'webtoon') response = fromAniList(await searchWebtoons(query, page), page);
+    else                        response = fromAniList(await searchManga(query, page), page);
     if (requestId !== state.requestId) return;
 
-    state.page = response.page;
-    state.hasNextPage = response.hasNextPage;
-    state.totalPages = response.totalPages;
-    state.totalResults = response.totalResults;
+    applyPageState(state, response);
     meta.textContent = response.totalResults
       ? `${response.totalResults} result${response.totalResults !== 1 ? 's' : ''} for "${query}"`
       : '';
@@ -154,8 +176,9 @@ function renderPagination(pagination, state) {
     `Page ${state.page}${state.totalPages ? ` of ${state.totalPages}` : ''}`;
 }
 
-async function renderDiscover(grid, meta, tab, pagination, state) {
+async function renderDiscover(grid, meta, tab, pagination, state, page = 1) {
   const requestId = ++state.requestId;
+  state.page = page;
   pagination.hidden = true;
   meta.textContent = '';
   showSkeletons(grid, 12);
@@ -163,10 +186,21 @@ async function renderDiscover(grid, meta, tab, pagination, state) {
     let items = [];
     if (tab === 'movie')        items = await getTrendingMovies();
     else if (tab === 'tv')      items = await getTrendingTV();
-    else if (tab === 'manga')   items = await getTrendingManga();
-    else if (tab === 'webtoon') items = await getTrendingWebtoons();
+    else if (tab === 'manga' || tab === 'webtoon') {
+      // Trending AniList : paginé, on réutilise la même barre de pagination
+      const fetchTrending = tab === 'manga' ? getTrendingManga : getTrendingWebtoons;
+      const response = fromAniList(await fetchTrending(page), page);
+      if (requestId !== state.requestId) return;
+      applyPageState(state, response);
+      meta.textContent = `Trending ${tabName(tab)}`;
+      renderGrid(grid, response.results, null);
+      renderPagination(pagination, state);
+      return;
+    }
 
     if (requestId !== state.requestId) return;
+    state.hasNextPage = false;
+    state.totalPages = 0;
     meta.textContent = `Trending ${tabName(tab)}`;
     renderGrid(grid, items, null);
   } catch (err) {
