@@ -11,6 +11,7 @@ import { registerRoute, setPageContainer, initRouter, navigate } from './router.
 import { renderHome }    from './pages/home.js';
 import { renderSearch }  from './pages/search.js';
 import { renderLibrary } from './pages/library.js';
+import { initInstallPrompt } from './components/installBanner.js';
 
 function mountApp() {
   const app = document.getElementById('app');
@@ -32,6 +33,9 @@ function mountApp() {
 
   // Start router
   initRouter();
+
+  // PWA install prompt (fires only on mobile if not yet installed)
+  initInstallPrompt();
 }
 
 // ── Boot sequence ─────────────────────────────────────────

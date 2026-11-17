@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#7c5cfc"/>
+      <stop offset="100%" stop-color="#4fc3f7"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#e0e8ff" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="url(#g)"/>
+
+  <!-- Subtle inner glow -->
+  <rect width="512" height="512" rx="96" fill="white" opacity="0.04"/>
+
+  <!-- Film strip bars top -->
+  <rect x="32"  y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="100" y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="168" y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="236" y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="304" y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="372" y="40"  width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="440" y="40"  width="40" height="72" rx="10" fill="white" opacity="0.18"/>
+
+  <!-- Film strip bars bottom -->
+  <rect x="32"  y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="100" y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="168" y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="236" y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="304" y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="372" y="400" width="52" height="72" rx="10" fill="white" opacity="0.18"/>
+  <rect x="440" y="400" width="40" height="72" rx="10" fill="white" opacity="0.18"/>
+
+  <!-- Big "N" lettermark -->
+  <text
+    x="256" y="348"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="300"
+    font-weight="700"
+    fill="url(#g2)"
+    text-anchor="middle"
+    letter-spacing="-10"
+  >N</text>
+</svg>
