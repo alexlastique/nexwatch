@@ -23,7 +23,13 @@ async function get(path, params = {}) {
 // ── Movies ─────────────────────────────────────────────────
 export async function searchMovies(query, page = 1) {
   const data = await get('/search/movie', { query, page });
-  return data.results.map(normalizeMovie);
+  return {
+    results: data.results.map(normalizeMovie),
+    page: data.page,
+    totalPages: data.total_pages,
+    totalResults: data.total_results,
+    hasNextPage: data.page < data.total_pages,
+  };
 }
 
 export async function getTrendingMovies() {
@@ -47,7 +53,13 @@ export async function getMovieDetail(id) {
 // ── TV Shows ───────────────────────────────────────────────
 export async function searchTV(query, page = 1) {
   const data = await get('/search/tv', { query, page });
-  return data.results.map(normalizeTV);
+  return {
+    results: data.results.map(normalizeTV),
+    page: data.page,
+    totalPages: data.total_pages,
+    totalResults: data.total_results,
+    hasNextPage: data.page < data.total_pages,
+  };
 }
 
 export async function getTrendingTV() {

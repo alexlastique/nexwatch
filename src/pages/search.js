@@ -9,8 +9,30 @@ let currentTab = 'movie';
 let lastQuery  = '';
 let debounce;
 
+/**
+ * AniList renvoie { items, pageInfo: { total, currentPage, lastPage, hasNextPage, perPage } }.
+ * On le convertit vers la forme attendue par la page :
+ * { results, page, totalPages, totalResults, hasNextPage } (même forme que TMDB).
+ */
+function fromAniList({ items = [], pageInfo = {} }, requestedPage = 1) {
+  return {
+    results:      items,
+    page:         pageInfo.currentPage || requestedPage,
+    totalPages:   pageInfo.lastPage || 1,
+    totalResults: pageInfo.total ?? items.length,
+    hasNextPage:  !!pageInfo.hasNextPage,
+  };
+}
+
 export function renderSearch(container, params = {}) {
   const initialQuery = params.q || '';
+  const searchState = {
+    page: 1,
+    hasNextPage: false,
+    totalPages: 0,
+    totalResults: 0,
+    requestId: 0,
+  };
 
   container.innerHTML = `
     <div class="page">
@@ -44,6 +66,11 @@ export function renderSearch(container, params = {}) {
 
         <div id="search-results-meta" class="search-results-meta"></div>
         <div id="search-grid" class="grid-auto" role="list" aria-live="polite"></div>
+        <nav id="search-pagination" class="search-pagination" aria-label="Search result pages" hidden>
+          <button type="button" class="search-page-button" data-page-action="previous">Previous</button>
+          <span class="search-page-indicator" aria-live="polite"></span>
+          <button type="button" class="search-page-button" data-page-action="next">Next</button>
+        </nav>
       </div>
     </div>
   `;
@@ -52,6 +79,7 @@ export function renderSearch(container, params = {}) {
   const tabBar  = container.querySelector('#search-tabs');
   const grid    = container.querySelector('#search-grid');
   const meta    = container.querySelector('#search-results-meta');
+  const pagination = container.querySelector('#search-pagination');
 
   // Tab switching
   tabBar.querySelectorAll('.tab').forEach(tab => {
@@ -60,8 +88,9 @@ export function renderSearch(container, params = {}) {
       tab.classList.add('active');
       tab.setAttribute('aria-selected', 'true');
       currentTab = tab.dataset.tab;
-      if (lastQuery) runSearch(lastQuery, grid, meta);
-      else renderDiscover(grid, meta, currentTab);
+      searchState.page = 1;
+      if (lastQuery) runSearch(lastQuery, grid, meta, pagination, searchState, 1);
+      else renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
     });
   });
 
@@ -71,59 +100,111 @@ export function renderSearch(container, params = {}) {
     debounce = setTimeout(() => {
       const q = input.value.trim();
       lastQuery = q;
-      if (q.length >= 2) runSearch(q, grid, meta);
-      else renderDiscover(grid, meta, currentTab);
+      searchState.page = 1;
+      if (q.length >= 2) runSearch(q, grid, meta, pagination, searchState, 1);
+      else renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
     }, 350);
+  });
+
+  // Pagination : fonctionne en recherche ET en mode Discover (trending)
+  pagination.addEventListener('click', event => {
+    const button = event.target.closest('[data-page-action]');
+    if (!button || button.disabled) return;
+    const isNext = button.dataset.pageAction === 'next';
+    const page = searchState.page + (isNext ? 1 : -1);
+    if (page < 1 || (isNext && !searchState.hasNextPage)) return;
+    if (lastQuery && lastQuery.length >= 2) runSearch(lastQuery, grid, meta, pagination, searchState, page);
+    else renderDiscover(grid, meta, currentTab, pagination, searchState, page);
   });
 
   // Initial state
   if (initialQuery) {
     lastQuery = initialQuery;
-    runSearch(initialQuery, grid, meta);
+    runSearch(initialQuery, grid, meta, pagination, searchState, 1);
   } else {
-    renderDiscover(grid, meta, currentTab);
+    renderDiscover(grid, meta, currentTab, pagination, searchState, 1);
   }
 }
 
-async function runSearch(query, grid, meta) {
+function applyPageState(state, response) {
+  state.page         = response.page;
+  state.hasNextPage  = response.hasNextPage;
+  state.totalPages   = response.totalPages;
+  state.totalResults = response.totalResults;
+}
+
+async function runSearch(query, grid, meta, pagination, state, page) {
+  const requestId = ++state.requestId;
+  state.page = page;
+  pagination.hidden = true;
   showSkeletons(grid, 12);
   meta.textContent = `Searching for "${query}"…`;
   try {
-    let results = [];
-    if (currentTab === 'movie')        results = await searchMovies(query);
-    else if (currentTab === 'tv')      results = await searchTV(query);
-    else if (currentTab === 'webtoon') results = await searchWebtoons(query);
-    else                               results = await searchManga(query);
+    const tab = currentTab;
+    let response;
+    if (tab === 'movie')        response = await searchMovies(query, page);
+    else if (tab === 'tv')      response = await searchTV(query, page);
+    else if (tab === 'webtoon') response = fromAniList(await searchWebtoons(query, page), page);
+    else                        response = fromAniList(await searchManga(query, page), page);
+    if (requestId !== state.requestId) return;
 
-    meta.textContent = results.length
-      ? `${results.length} result${results.length !== 1 ? 's' : ''} for "${query}"`
+    applyPageState(state, response);
+    meta.textContent = response.totalResults
+      ? `${response.totalResults} result${response.totalResults !== 1 ? 's' : ''} for "${query}"`
       : '';
-    renderGrid(grid, results, query);
+    renderGrid(grid, response.results, query);
+    renderPagination(pagination, state);
   } catch {
+    if (requestId !== state.requestId) return;
     meta.textContent = '';
+    pagination.hidden = true;
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1;">
         <div class="empty-icon">⚠️</div>
         <h3>Search failed</h3>
-        <p>Check your TMDB API key or internet connection and try again.</p>
+        <p>Check your internet connection and try again.</p>
       </div>
     `;
   }
 }
 
-async function renderDiscover(grid, meta, tab) {
+function renderPagination(pagination, state) {
+  pagination.hidden = state.totalPages <= 1;
+  pagination.querySelector('[data-page-action="previous"]').disabled = state.page <= 1;
+  pagination.querySelector('[data-page-action="next"]').disabled = !state.hasNextPage;
+  pagination.querySelector('.search-page-indicator').textContent =
+    `Page ${state.page}${state.totalPages ? ` of ${state.totalPages}` : ''}`;
+}
+
+async function renderDiscover(grid, meta, tab, pagination, state, page = 1) {
+  const requestId = ++state.requestId;
+  state.page = page;
+  pagination.hidden = true;
   meta.textContent = '';
   showSkeletons(grid, 12);
   try {
     let items = [];
     if (tab === 'movie')        items = await getTrendingMovies();
     else if (tab === 'tv')      items = await getTrendingTV();
-    else if (tab === 'manga')   items = await getTrendingManga();
-    else if (tab === 'webtoon') items = await getTrendingWebtoons();
+    else if (tab === 'manga' || tab === 'webtoon') {
+      // Trending AniList : paginé, on réutilise la même barre de pagination
+      const fetchTrending = tab === 'manga' ? getTrendingManga : getTrendingWebtoons;
+      const response = fromAniList(await fetchTrending(page), page);
+      if (requestId !== state.requestId) return;
+      applyPageState(state, response);
+      meta.textContent = `Trending ${tabName(tab)}`;
+      renderGrid(grid, response.results, null);
+      renderPagination(pagination, state);
+      return;
+    }
 
+    if (requestId !== state.requestId) return;
+    state.hasNextPage = false;
+    state.totalPages = 0;
     meta.textContent = `Trending ${tabName(tab)}`;
     renderGrid(grid, items, null);
   } catch (err) {
+    if (requestId !== state.requestId) return;
     console.error('Discover failed:', err);
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1;">
