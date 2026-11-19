@@ -3,11 +3,13 @@
 ============================================================ */
 import { getTrendingMovies, getPopularMovies, getTrendingTV } from '../api/tmdb.js';
 import { getTrendingManga, getTrendingWebtoons } from '../api/anilist.js';
+import { getTrendingGames } from '../api/games.js';
 import { createCarousel, hydrateCarousel } from '../components/carousel.js';
 import { navigate } from '../router.js';
 
 // AniList renvoie maintenant { items, pageInfo } : la home n'a besoin que de la 1re page d'items.
 const firstPageItems = fn => async () => (await fn(1)).items;
+const firstPageResults = fn => async () => (await fn(1)).results;
 
 export async function renderHome(container) {
   container.innerHTML = '';
@@ -24,7 +26,7 @@ export async function renderHome(container) {
       <div class="hero-eyebrow">✨ Your media universe</div>
       <h1 class="heading-xl hero-title">Track Everything<br/>You Love</h1>
       <p class="hero-subtitle">
-        Movies, TV shows, manga, webtoons — all in one beautiful place.
+        Movies, TV shows, manga, webtoons, video games — all in one beautiful place.
         Build your library, track your progress, discover what's trending.
       </p>
       <div class="hero-actions">
@@ -47,11 +49,12 @@ export async function renderHome(container) {
   main.className = 'container';
 
   const carouselDefs = [
-    { id: 'trending-movies',   title: '🎬 Trending Movies',    fetch: getTrendingMovies },
-    { id: 'trending-tv',       title: '📺 Trending TV Shows',   fetch: getTrendingTV },
-    { id: 'trending-manga',    title: '📚 Trending Manga',      fetch: firstPageItems(getTrendingManga) },
-    { id: 'trending-webtoons', title: '📱 Trending Webtoons',   fetch: firstPageItems(getTrendingWebtoons) },
-    { id: 'popular-movies',    title: '🔥 Popular Movies',      fetch: getPopularMovies },
+    { id: 'trending-movies',   title: '🎬 Trending Movies',      fetch: getTrendingMovies },
+    { id: 'trending-tv',       title: '📺 Trending TV Shows',     fetch: getTrendingTV },
+    { id: 'trending-manga',    title: '📚 Trending Manga',        fetch: firstPageItems(getTrendingManga) },
+    { id: 'trending-webtoons', title: '📱 Trending Webtoons',     fetch: firstPageItems(getTrendingWebtoons) },
+    { id: 'trending-games',    title: '🎮 Trending Video Games',  fetch: firstPageResults(getTrendingGames) },
+    { id: 'popular-movies',    title: '🔥 Popular Movies',        fetch: getPopularMovies },
   ];
 
   // Render all carousels immediately with skeletons

@@ -3,6 +3,7 @@
 ============================================================ */
 import { searchMovies, searchTV, getTrendingMovies, getTrendingTV } from '../api/tmdb.js';
 import { searchManga, searchWebtoons, getTrendingManga, getTrendingWebtoons } from '../api/anilist.js';
+import { searchGames, getTrendingGames } from '../api/games.js';
 import { createMediaCard, createCardSkeleton } from '../components/card.js';
 
 let currentTab = 'movie';
@@ -39,7 +40,7 @@ export function renderSearch(container, params = {}) {
       <div class="container">
         <div class="search-header">
           <h1>Discover</h1>
-          <p>Search across movies, TV shows, manga and webtoons</p>
+          <p>Search across movies, TV shows, manga, webtoons and video games</p>
         </div>
 
         <div class="search-controls">
@@ -61,6 +62,7 @@ export function renderSearch(container, params = {}) {
             <div class="tab ${currentTab === 'tv'    ? 'active' : ''}"   data-tab="tv"      role="tab" aria-selected="${currentTab === 'tv'}">📺 TV Shows</div>
             <div class="tab ${currentTab === 'manga' ? 'active' : ''}"   data-tab="manga"   role="tab" aria-selected="${currentTab === 'manga'}">📚 Manga</div>
             <div class="tab ${currentTab === 'webtoon' ? 'active' : ''}" data-tab="webtoon" role="tab" aria-selected="${currentTab === 'webtoon'}">📱 Webtoons</div>
+            <div class="tab ${currentTab === 'game'  ? 'active' : ''}"   data-tab="game"    role="tab" aria-selected="${currentTab === 'game'}">🎮 Games</div>
           </div>
         </div>
 
@@ -144,6 +146,7 @@ async function runSearch(query, grid, meta, pagination, state, page) {
     let response;
     if (tab === 'movie')        response = await searchMovies(query, page);
     else if (tab === 'tv')      response = await searchTV(query, page);
+    else if (tab === 'game')    response = await searchGames(query, page);
     else if (tab === 'webtoon') response = fromAniList(await searchWebtoons(query, page), page);
     else                        response = fromAniList(await searchManga(query, page), page);
     if (requestId !== state.requestId) return;
@@ -186,6 +189,15 @@ async function renderDiscover(grid, meta, tab, pagination, state, page = 1) {
     let items = [];
     if (tab === 'movie')        items = await getTrendingMovies();
     else if (tab === 'tv')      items = await getTrendingTV();
+    else if (tab === 'game') {
+      const response = await getTrendingGames(page);
+      if (requestId !== state.requestId) return;
+      applyPageState(state, response);
+      meta.textContent = `Trending ${tabName(tab)}`;
+      renderGrid(grid, response.results, null);
+      renderPagination(pagination, state);
+      return;
+    }
     else if (tab === 'manga' || tab === 'webtoon') {
       // Trending AniList : paginé, on réutilise la même barre de pagination
       const fetchTrending = tab === 'manga' ? getTrendingManga : getTrendingWebtoons;
@@ -246,7 +258,7 @@ function showSkeletons(grid, count) {
 }
 
 function tabName(tab) {
-  return { movie: 'Movies', tv: 'TV Shows', manga: 'Manga', webtoon: 'Webtoons' }[tab] || tab;
+  return { movie: 'Movies', tv: 'TV Shows', manga: 'Manga', webtoon: 'Webtoons', game: 'Video Games' }[tab] || tab;
 }
 
 function escHtml(str) {

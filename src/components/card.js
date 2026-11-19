@@ -7,7 +7,7 @@ import { openDetail } from '../pages/detail.js';
 
 export function createMediaCard(item, opts = {}) {
   const inLib = isInLibrary(item.id);
-  const typeLabel = { movie: 'Movie', tv: 'TV Show', manga: 'Manga', webtoon: 'Webtoon' }[item.type] || item.type;
+  const typeLabel = { movie: 'Movie', tv: 'TV Show', manga: 'Manga', webtoon: 'Webtoon', game: 'Game' }[item.type] || item.type;
   const badgeClass = `badge-${item.type}`;
   const scoreDisplay = item.score ? `⭐ ${(item.score / 10).toFixed(1)}` : '';
 
@@ -85,5 +85,5 @@ export function createCardSkeleton() {
 }
 
 function typeIcon(type) {
-  return { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱' }[type] || '🎭';
+  return { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱', game: '🎮' }[type] || '🎭';
 }

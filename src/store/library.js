@@ -89,8 +89,10 @@ export async function addToLibrary(item, status = 'planned') {
     poster:    item.poster    || null,
     year:      item.year      || '—',
     score:     item.score     || null,
-    tmdbId:    item.tmdbId    || null,
-    anilistId: item.anilistId || null,
+    tmdbId:    item.tmdbId    || item.rawgId || null,
+    anilistId: item.anilistId || item.steamId || null,
+    rawgId:    item.rawgId    || null,
+    steamId:   item.steamId   || null,
     status,
     progress: {
       currentSeason:  item.type === 'tv' ? 1 : null,
@@ -196,6 +198,7 @@ export function getStats() {
     tv:        entries.filter(e => e.type === 'tv').length,
     manga:     entries.filter(e => e.type === 'manga').length,
     webtoon:   entries.filter(e => e.type === 'webtoon').length,
+    games:     entries.filter(e => e.type === 'game').length,
     watching:  entries.filter(e => e.status === 'watching').length,
     completed: entries.filter(e => e.status === 'completed').length,
     planned:   entries.filter(e => e.status === 'planned').length,
@@ -218,6 +221,11 @@ export function formatProgress(entry) {
     const s = p?.currentSeason  ? `S${String(p.currentSeason).padStart(2, '0')}`  : '';
     const e = p?.currentEpisode ? `E${String(p.currentEpisode).padStart(2, '0')}` : '';
     return [s, e].filter(Boolean).join('') || 'Not started';
+  }
+  if (entry.type === 'game') {
+    const hours = p?.currentChapter ? `${p.currentChapter}h` : '';
+    const pct   = p?.currentSeason  ? `${p.currentSeason}%`  : '';
+    return [hours, pct].filter(Boolean).join(' · ') || 'Not started';
   }
   return p?.currentChapter ? `Chapter ${p.currentChapter}` : 'Not started';
 }

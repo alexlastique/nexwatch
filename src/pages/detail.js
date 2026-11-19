@@ -3,6 +3,7 @@
 ============================================================ */
 import { getMovieDetail, getTVDetail } from '../api/tmdb.js';
 import { getMangaDetail } from '../api/anilist.js';
+import { getGameDetail } from '../api/games.js';
 import { addToLibrary, removeFromLibrary, isInLibrary, getEntry, updateStatus, updateProgress, formatProgress } from '../store/library.js';
 import { showToast } from '../components/toast.js';
 
@@ -129,6 +130,23 @@ function renderProgressFields(item, entry) {
       </div>
     `;
   }
+  if (item.type === 'game') {
+    return `
+      <div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">PROGRESS</div>
+        <div style="display:flex;gap:8px;">
+          <div>
+            <label style="font-size:.7rem;color:var(--text-muted);display:block;margin-bottom:3px;">Hours</label>
+            <input class="progress-input" id="prog-chapter" type="number" min="0" value="${entry?.progress?.currentChapter || ''}" placeholder="h" aria-label="Hours played" />
+          </div>
+          <div>
+            <label style="font-size:.7rem;color:var(--text-muted);display:block;margin-bottom:3px;">Completion %</label>
+            <input class="progress-input" id="prog-season" type="number" min="0" max="100" value="${entry?.progress?.currentSeason || ''}" placeholder="%" aria-label="Completion percentage" />
+          </div>
+        </div>
+      </div>
+    `;
+  }
   // manga / webtoon
   return `
     <div>
@@ -210,9 +228,10 @@ function refreshControls(root, item) {
 async function loadFullDetail(root, item) {
   try {
     let detail;
-    if (item.type === 'movie')   detail = await getMovieDetail(item.tmdbId);
-    else if (item.type === 'tv') detail = await getTVDetail(item.tmdbId);
-    else                         detail = await getMangaDetail(item.anilistId);
+    if (item.type === 'movie')     detail = await getMovieDetail(item.tmdbId);
+    else if (item.type === 'tv')   detail = await getTVDetail(item.tmdbId);
+    else if (item.type === 'game') detail = await getGameDetail(item);
+    else                           detail = await getMangaDetail(item.anilistId);
 
     // Update backdrop if better one available
     if (detail.backdrop && !item.backdrop) {
@@ -252,13 +271,16 @@ async function loadFullDetail(root, item) {
 
 function buildStats(d) {
   const parts = [];
-  if (d.runtime)   parts.push(`🕐 ${d.runtime} min`);
-  if (d.seasons)   parts.push(`📺 ${d.seasons} Season${d.seasons > 1 ? 's' : ''}`);
-  if (d.episodes)  parts.push(`🎞 ${d.episodes} Episodes`);
-  if (d.chapters)  parts.push(`📖 ${d.chapters} Chapters`);
-  if (d.volumes)   parts.push(`📚 ${d.volumes} Volumes`);
-  if (d.status)    parts.push(`🔖 ${d.status}`);
-  if (d.tagline)   parts.push(`💬 ${d.tagline}`);
+  if (d.runtime)             parts.push(`🕐 ${d.runtime} min`);
+  if (d.seasons)             parts.push(`📺 ${d.seasons} Season${d.seasons > 1 ? 's' : ''}`);
+  if (d.episodes)            parts.push(`🎞 ${d.episodes} Episodes`);
+  if (d.chapters)            parts.push(`📖 ${d.chapters} Chapters`);
+  if (d.volumes)             parts.push(`📚 ${d.volumes} Volumes`);
+  if (d.playtime)            parts.push(`⏱ ~${d.playtime}h avg playtime`);
+  if (d.platforms?.length)   parts.push(`🎮 ${d.platforms.join(', ')}`);
+  if (d.developer)           parts.push(`🏢 ${d.developer}`);
+  if (d.status)              parts.push(`🔖 ${d.status}`);
+  if (d.tagline)             parts.push(`💬 ${d.tagline}`);
   return parts.map(p => `<span>${p}</span>`).join('') || '<span style="color:var(--text-muted)">No details available</span>';
 }
 
@@ -302,11 +324,12 @@ function buildExtra(d) {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function typeLabel(t) { return { movie: 'Movie', tv: 'TV Show', manga: 'Manga', webtoon: 'Webtoon' }[t] || t; }
-function typeIcon(t)  { return { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱' }[t] || '🎭'; }
+function typeLabel(t) { return { movie: 'Movie', tv: 'TV Show', manga: 'Manga', webtoon: 'Webtoon', game: 'Video Game' }[t] || t; }
+function typeIcon(t)  { return { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱', game: '🎮' }[t] || '🎭'; }
 
 function getStatuses(type) {
   if (type === 'movie')   return [{ value: 'planned', label: '🕐 Want to Watch' }, { value: 'watching', label: '▶️ Watching' }, { value: 'completed', label: '✅ Watched' }, { value: 'dropped', label: '❌ Dropped' }];
   if (type === 'tv')      return [{ value: 'planned', label: '🕐 Plan to Watch' }, { value: 'watching', label: '▶️ Watching' }, { value: 'completed', label: '✅ Completed' }, { value: 'dropped', label: '❌ Dropped' }];
+  if (type === 'game')    return [{ value: 'planned', label: '🕐 Backlog' }, { value: 'watching', label: '🎮 Playing' }, { value: 'completed', label: '✅ Completed' }, { value: 'dropped', label: '❌ Dropped' }];
   return [{ value: 'planned', label: '🕐 Plan to Read' }, { value: 'watching', label: '📖 Reading' }, { value: 'completed', label: '✅ Completed' }, { value: 'dropped', label: '❌ Dropped' }];
 }

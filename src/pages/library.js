@@ -32,6 +32,7 @@ export function renderLibrary(container) {
               <div class="filter-chip" data-type="tv">📺 TV</div>
               <div class="filter-chip" data-type="manga">📚 Manga</div>
               <div class="filter-chip" data-type="webtoon">📱 Webtoons</div>
+              <div class="filter-chip" data-type="game">🎮 Games</div>
             </div>
           </div>
           <div>
@@ -90,11 +91,12 @@ function renderStats(statsContainer) {
   const s = getStats();
   statsContainer.innerHTML = `
     <div class="stat-card"><div class="stat-number">${s.total}</div><div class="stat-label">Total</div></div>
-    <div class="stat-card"><div class="stat-number">${s.watching}</div><div class="stat-label">Watching</div></div>
+    <div class="stat-card"><div class="stat-number">${s.watching}</div><div class="stat-label">In Progress</div></div>
     <div class="stat-card"><div class="stat-number">${s.completed}</div><div class="stat-label">Completed</div></div>
     <div class="stat-card"><div class="stat-number">${s.planned}</div><div class="stat-label">Planned</div></div>
     <div class="stat-card"><div class="stat-number">${s.movies}</div><div class="stat-label">Movies</div></div>
     <div class="stat-card"><div class="stat-number">${s.manga + s.webtoon}</div><div class="stat-label">Manga</div></div>
+    <div class="stat-card"><div class="stat-number">${s.games}</div><div class="stat-label">Games</div></div>
   `;
 }
 
@@ -127,7 +129,7 @@ function createLibraryItem(entry, listContainer) {
   const statusClass = { planned: 'status-planned', watching: 'status-watching', completed: 'status-completed', dropped: 'status-dropped' }[entry.status] || '';
   const statusLabel = { planned: '🕐 Planned', watching: '▶️ Watching', completed: '✅ Completed', dropped: '❌ Dropped' }[entry.status] || entry.status;
   const progress    = formatProgress(entry);
-  const typeIcon    = { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱' }[entry.type] || '🎭';
+  const typeIcon    = { movie: '🎬', tv: '📺', manga: '📚', webtoon: '📱', game: '🎮' }[entry.type] || '🎭';
 
   const el = document.createElement('div');
   el.className = 'library-item';
@@ -205,6 +207,24 @@ function renderInlineProgress(entry) {
           <input class="progress-input" data-field="currentSeason" type="number" min="1" value="${entry.progress?.currentSeason || ''}" placeholder="–" style="width:52px;font-size:.78rem;" aria-label="Season number" />
           <span style="font-size:.72rem;color:var(--text-muted);">E</span>
           <input class="progress-input" data-field="currentEpisode" type="number" min="1" value="${entry.progress?.currentEpisode || ''}" placeholder="–" style="width:52px;font-size:.78rem;" aria-label="Episode number" />
+        </div>
+        <button class="btn btn-secondary" data-action="save-progress" style="padding:5px 12px;font-size:.75rem;" aria-label="Save progress">Save</button>
+      </div>
+    `;
+  }
+  if (entry.type === 'game') {
+    return `
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+        <select class="status-select" data-field="status" aria-label="Status" style="font-size:.78rem;padding:5px 10px;">
+          ${[['planned','🕐 Backlog'],['watching','🎮 Playing'],['completed','✅ Completed'],['dropped','❌ Dropped']].map(([v,l]) =>
+            `<option value="${v}" ${entry.status === v ? 'selected':''}>${l}</option>`
+          ).join('')}
+        </select>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:.72rem;color:var(--text-muted);">Hrs</span>
+          <input class="progress-input" data-field="currentChapter" type="number" min="0" value="${entry.progress?.currentChapter || ''}" placeholder="–" style="width:56px;font-size:.78rem;" aria-label="Hours played" />
+          <span style="font-size:.72rem;color:var(--text-muted);">%</span>
+          <input class="progress-input" data-field="currentSeason" type="number" min="0" max="100" value="${entry.progress?.currentSeason || ''}" placeholder="–" style="width:56px;font-size:.78rem;" aria-label="Completion percentage" />
         </div>
         <button class="btn btn-secondary" data-action="save-progress" style="padding:5px 12px;font-size:.75rem;" aria-label="Save progress">Save</button>
       </div>

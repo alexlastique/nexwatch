@@ -20,7 +20,7 @@ export function createNavbar(onSearch) {
         <input
           id="navbar-search-input"
           type="search"
-          placeholder="Search movies, TV, manga…"
+          placeholder="Search movies, TV, manga, games…"
           autocomplete="off"
           aria-label="Search"
         />
